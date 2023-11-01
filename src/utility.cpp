@@ -8,7 +8,7 @@
 
     remarks:	Обрабатывает аргументы командной строки для заполнения глобальных переменных
 */
-void utility_methods::process_arguments(int argc, char const *argv[], unsigned int &num_cells_x, unsigned int &num_cells_y)
+void utility_methods::process_arguments(int argc, char const *argv[], unsigned int &num_cells_x, unsigned int &num_cells_y, unsigned int &resx, unsigned int &resy)
 {
 	for (int i {}; i < argc; i++)
 	{
@@ -19,6 +19,14 @@ void utility_methods::process_arguments(int argc, char const *argv[], unsigned i
 		if (strcmp(argv[i], "-y") == 0)
 		{
 			num_cells_y = std::stoi(argv[i+1]);
+		}
+		if (strcmp(argv[i], "-resx") == 0)
+		{
+			resx = std::stoi(argv[i+1]);
+		}
+		if (strcmp(argv[i], "-resy") == 0)
+		{
+			resy = std::stoi(argv[i+1]);
 		}
 	}
 }

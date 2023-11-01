@@ -1,6 +1,11 @@
 #include "../header/game_of_life.h"
 
 
+
+/*
+=====	ЛОГИКА	=====	
+*/
+
 game_of_life::GameOfLifeDomain::GameOfLifeDomain(unsigned int num_cells_x, unsigned int num_cells_y)
 {
 	numX = num_cells_x;
@@ -76,4 +81,45 @@ void game_of_life::GameOfLifeDomain::debug_print()
 		}
 		std::cout << std::endl;
 	}
+}
+
+/*
+=====	РЕНДЕР	=====	
+*/
+
+game_of_life::WindowHandler::WindowHandler(unsigned int resx, unsigned int resy)
+{
+	window = new sf::RenderWindow(sf::VideoMode(resx, resy), "Игра 'Жизнь'");
+}
+
+game_of_life::WindowHandler::WindowHandler()
+{
+	window = new sf::RenderWindow(sf::VideoMode(DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT), "Игра 'Жизнь'");
+}
+
+void game_of_life::WindowHandler::draw()
+{
+	while (window->isOpen())
+    {
+        sf::Event event;
+        while (window->pollEvent(event))
+        {
+            if (event.type == sf::Event::Closed)
+                window->close();
+        }
+
+        window->clear();
+        window->draw(*renderField);
+        window->display();
+    }
+}
+
+game_of_life::RenderField::RenderField(unsigned int num_cells_x, unsigned int num_cells_y)
+{
+
+}
+
+game_of_life::RenderField::RenderField()
+{
+	
 }

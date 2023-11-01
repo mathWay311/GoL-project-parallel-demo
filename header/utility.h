@@ -4,7 +4,7 @@
 
 namespace utility_methods {
 
-	void process_arguments(int argc, char const *argv[], unsigned int &num_cells_x, unsigned int &num_cells_y);
+	void process_arguments(int argc, char const *argv[], unsigned int &num_cells_x, unsigned int &num_cells_y, unsigned int &resx, unsigned int &resy);
 	void config_printout(unsigned int num_cells_x, unsigned int num_cells_y);
 	void single_var_printout(std::string name, double var);
 
