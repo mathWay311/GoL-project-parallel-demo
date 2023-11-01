@@ -23,8 +23,7 @@ int main(int argc, char const *argv[])
 	 SCREEN_HEIGHT);
     
 	config_printout(num_cells_x, num_cells_y);
-	GameOfLifeDomain GoLD = GameOfLifeDomain(num_cells_x, num_cells_y);
-	GoLD.set_random();
-	GoLD.debug_print();
+	GameOfLifeFacade gameOfLife(SCREEN_WIDTH, SCREEN_HEIGHT, num_cells_x, num_cells_y);
+
 	return 0;
 }

@@ -87,6 +87,7 @@ void game_of_life::GameOfLifeDomain::debug_print()
 =====	РЕНДЕР	=====	
 */
 
+
 game_of_life::WindowHandler::WindowHandler(unsigned int resx, unsigned int resy)
 {
 	window = new sf::RenderWindow(sf::VideoMode(resx, resy), "Игра 'Жизнь'");
@@ -109,11 +110,10 @@ void game_of_life::WindowHandler::draw()
         }
 
         window->clear();
-        window->draw(*renderField);
         window->display();
     }
 }
-
+/*
 game_of_life::RenderField::RenderField(unsigned int num_cells_x, unsigned int num_cells_y)
 {
 
@@ -122,4 +122,20 @@ game_of_life::RenderField::RenderField(unsigned int num_cells_x, unsigned int nu
 game_of_life::RenderField::RenderField()
 {
 	
+}
+*/
+
+/*
+=====	ФАСАД	=====	
+*/
+
+game_of_life::GameOfLifeFacade::GameOfLifeFacade(unsigned int screen_width, unsigned int screen_height, unsigned int num_cells_x, unsigned int num_cells_y)
+{
+	gameOfLifeDomain = new GameOfLifeDomain(num_cells_x, num_cells_y);
+	windowHandler = new WindowHandler(screen_width, screen_height);
+}
+
+game_of_life::GameOfLifeFacade::GameOfLifeFacade()
+{
+
 }

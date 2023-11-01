@@ -49,9 +49,23 @@ namespace game_of_life {
 			WindowHandler();
 
 			sf::RenderWindow* window;
-			RenderField* renderField;
+			//RenderField* renderField;
 
 			void draw(); 
+	};
+
+	// Класс-фасад, хранящий всю необходимую логи
+	class GameOfLifeFacade
+	{
+		public:
+			
+			GameOfLifeFacade(unsigned int screen_width, unsigned int screen_height, unsigned int num_cells_x, unsigned int num_cells_y);
+			GameOfLifeFacade();
+
+		private:
+			GameOfLifeDomain* gameOfLifeDomain;
+			WindowHandler* windowHandler;
+
 	};
 
 	
