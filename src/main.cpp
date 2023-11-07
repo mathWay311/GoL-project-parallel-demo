@@ -26,15 +26,15 @@ print_modes print_mode = print_modes::ALL;					// Текущий режим пе
 =====	ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ	=====	
 ===================================*/
 
-/* 
-    input:    	Аргументы командной строки, адреса переменных
 
-    output:   	нет.
+void process_arguments(int argc, char const *argv[]) {
+	/**
+     * Обработка аргументов
+     *
+     * @param argc 	Количество аргументов
+     * @param agrv 	Массив аргументов
+     */
 
-    remarks:	Обрабатывает аргументы командной строки для заполнения глобальных переменных
-*/
-void process_arguments(int argc, char const *argv[])
-{
 	for (int i {}; i < argc; i++)
 	{
 		if (strcmp(argv[i], "-x") == 0)
@@ -86,13 +86,24 @@ void process_arguments(int argc, char const *argv[])
 	}
 }
 
-void single_var_printout(std::string name, auto var)
-{
+
+void single_var_printout(std::string name, auto var) {
+	/**
+     * Вывод одной инфо-строки конфигурации
+     *
+     * @param name	Название переменной
+     * @param var 	Переменная
+     */
 	std::cout << "<i>\t" << name << ": " << "\t\t\t" << var << std::endl;
 }
 
-void config_printout()
-{
+
+
+void config_printout() {
+	/**
+     * Вывод всей конфигурации
+     */
+
 	std::map <print_modes, std::string> print_mode_to_info{
 				{print_modes::ALL,			"каждый кадр"},
 				{print_modes::FIRSTLAST,	"первый и последний кадр"},
@@ -120,6 +131,13 @@ void config_printout()
 
 unsigned int num_of_neighbours(unsigned int i, unsigned int j)
 {
+	/**
+     * Подсчёт количества соседей заданной клетки
+     *
+     * @param i 	индекс i
+     * @param j 	индекс j
+     * @return количество соседей клетки.
+     */
 	unsigned int neighbours = 0;
 
 	if (cells[(i+1)	*	num_cells_y + j+1]) 	neighbours++;
@@ -135,6 +153,11 @@ unsigned int num_of_neighbours(unsigned int i, unsigned int j)
 
 bool step_next()
 {
+	/**
+     * Рассчёт следующего шага симуляции
+     *
+     * @return true, если состояние с предыдущего кадра поменялось и false, если не поменялось
+     */
 	bool flag_changes_made = false;
 	int neighbours;
 	for (unsigned int i = 1; i < num_cells_x - 1; i++)
@@ -156,6 +179,9 @@ bool step_next()
 
 void randomize_cells()
 {
+	/**
+     * Рандомизировать содержимое клеток
+     */
 	srand(randomizer_seed);
 	for (unsigned int i = 1; i < num_cells_x; i++)
 	{
@@ -170,6 +196,11 @@ void randomize_cells()
 
 void debug_print(unsigned iteration_num)
 {
+	/**
+     * Вывод кадра симуляции на экран
+     *
+     * @param iteration_num 	номер итерации для вывода.
+     */
 	std::cout << "Итерация " << iteration_num << std::endl;
 	for (unsigned int i = 0; i <= num_cells_x; i++)
 	{
@@ -210,7 +241,7 @@ int main(int argc, char const *argv[])
 	cells.resize(num_cells_x * num_cells_y, false);
 	std::cout << std::endl;
 	 
-	double avg = 0, maximum = -1;
+	double avg = 0, maximum = -1, sum = 0;
 	for (unsigned test_number {0}; test_number < tests_count; test_number++)
 	{
 			int iteration_num = 0;
@@ -246,17 +277,17 @@ int main(int argc, char const *argv[])
 				}
 				
 			auto end = std::chrono::high_resolution_clock::now();
-			//if (print_mode == print_modes::FIRSTLAST or print_mode == print_modes::ALL) debug_print(iteration_num);
+			if (print_mode == print_modes::FIRSTLAST or print_mode == print_modes::ALL) debug_print(iteration_num);
 
-			auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.;
+			auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-			avg = (avg + seconds * 1000) / (iteration_num + 1);
+			sum += seconds;
 			if (seconds > maximum) maximum = seconds;
 
-			std::cout << "<!>\tТест " << test_number << " завершен.\tКоличество итераций: " << iteration_num << "\tВремя работы: "<< seconds << " секунд."<< std::endl;
+			std::cout << "<!>\tТест " << test_number << " завершен.\tКоличество итераций: " << iteration_num << "\tВремя работы: "<< seconds/1000. << " секунд."<< std::endl;
 	}
 	
-	std::cout << "<!> Симуляция завершена. \tСреднее время работы: " << avg << " \tМаксимальное время работы: " << maximum << std::endl;
+	std::cout << "<!> Симуляция завершена. \tСреднее время работы: " << sum/tests_count/1000. << " секунд\tМаксимальное время работы: " << maximum/1000. << " секунд" << std::endl;
 ;
 
 	return 0;
