@@ -1,4 +1,5 @@
 По Вашей просьбе упростил программу до одного файлика.
+https://github.com/mathWay311/GoL-project-parallel-demo/blob/main/src/main.cpp
 
 ОБЗОР
 

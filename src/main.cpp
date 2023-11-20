@@ -9,17 +9,18 @@
 #include <thread>
 #include <omp.h>
 
-std::vector<bool> cells {0};								// Текущий кадр симуляции
-std::vector<bool> cells_next {0};							// Следующий кадр симуляции
+bool** cells;								// Текущий кадр симуляции
+bool** cells_next;							// Следующий кадр симуляции
 
 enum class print_modes {NONE, FIRSTLAST, ALL};				// Режимы вывода на экран
-char border_char = 'X', alive_char = 'o', dead_char = '.'; 	// Символы
+char border_char = '.', alive_char = 'o', dead_char = '.'; 	// Символы
 unsigned num_cells_x = 10;									// Количество клеток по вертикали
 unsigned num_cells_y = 10;									// Количество клеток по горизонтали
 int randomizer_seed = 2107;									// Зерно генератора случайных чисел
 unsigned iter_count = 0;									// Количество итераций
 unsigned tests_count = 1;									// Количество повторов замеров (для получения более объективной цифры).
 bool flag_mode_iteration = false;							// Режим заданного количества итераций (если false, то будет симулировать пока не достигнет стационарного состояния)
+bool flag_glider_mode = false;								// Если истина, то не рандомизировать клетки, а поставить глайдер в угол кадра симуляции. (для тестирования правильности)
 bool flag_parallel_mode = false;							// Режим распараллеливания с использованием OpenMP
 print_modes print_mode = print_modes::ALL;					// Текущий режим печати
 
@@ -84,6 +85,10 @@ void process_arguments(int argc, char const *argv[]) {
 			if (strlen(argv[i+1]) == 1) border_char = static_cast<char>(*argv[i+1]);
 			else std::cout << "Не удастся использовать данный символ border_char." << std::endl;
 		}
+		if (strcmp(argv[i], "-glider") == 0)
+		{
+			flag_glider_mode = true;
+		}
 	}
 }
 
@@ -112,8 +117,8 @@ void config_printout() {
 			};
 
 	std::cout << "Программа симуляции будет запущена со следующими параметрами:" << std::endl;
-	single_var_printout("Размер сетки по оси Х", 	::num_cells_x-2);
-	single_var_printout("Размер сетки по оси Y", 	::num_cells_y-2);	
+	single_var_printout("Размер сетки по оси Х", 	::num_cells_x);
+	single_var_printout("Размер сетки по оси Y", 	::num_cells_y);	
 	single_var_printout("Зерно рандомизатора", 		::randomizer_seed);	
 	single_var_printout("Символ границы", 			::border_char);
 	single_var_printout("Символ живой клетки", 		::alive_char);	
@@ -138,24 +143,28 @@ unsigned int num_of_neighbours(unsigned int i, unsigned int j)
      */
 	unsigned int neighbours = 0;
 
-	if (cells[(i+1)	*	num_cells_y + j+1]) 	neighbours++;
-	if (cells[(i+1)	*	num_cells_y + j]) 		neighbours++;
-	if (cells[(i+1)	*	num_cells_y + j-1]) 	neighbours++;
-	if (cells[i 	* 	num_cells_y + j-1]) 	neighbours++;
-	if (cells[(i-1)	*	num_cells_y + j+1]) 	neighbours++;
-	if (cells[(i-1)	*	num_cells_y + j]) 		neighbours++;
-	if (cells[(i-1)	*	num_cells_y + j-1]) 	neighbours++;
+	if (cells[i+1][j+1]) 	neighbours++;
+	if (cells[i+1][j]) 		neighbours++;
+	if (cells[i+1][j-1]) 	neighbours++;
+	if (cells[i][j+1]) 		neighbours++;
+	if (cells[i][j-1]) 		neighbours++;
+	if (cells[i-1][j+1]) 	neighbours++;
+	if (cells[i-1][j]) 		neighbours++;
+	if (cells[i-1][j-1]) 	neighbours++;
 
 	return neighbours;
 }
 
 void sim_frame_copy()
 {
+	/**
+     * Копирование кадра симуляции
+     */
 	for (unsigned int i = 0; i < num_cells_x; i++)
 	{	
 		for (unsigned int j = 0; j < num_cells_y; j++)
 		{
-			cells[i*num_cells_y + j] = cells_next[i*num_cells_y + j];
+			cells[i][j] = cells_next[i][j];
 		}
 	}
 }
@@ -169,43 +178,44 @@ bool step_next()
      */
 	bool flag_changes_made = false;
 	int neighbours;
-	sim_frame_copy();
 	if (flag_parallel_mode)
 	{
-		#pragma omp parallel for
-		for (unsigned int i = 1; i < num_cells_x - 1; i++)
+		unsigned int i,j = 1;
+		
+		#pragma omp parallel for private(i,j)
+		for (unsigned int i = 1; i < num_cells_x-1; i++)
 		{
-			for (unsigned int j = 1; j < num_cells_y - 1; j++)
+			for (unsigned int j = 1; j < num_cells_y-1; j++)
 			{
-				bool prev_state = cells[i*num_cells_y + j];
+				bool prev_state = cells[i][j];
 				neighbours = num_of_neighbours(i,j);
 
-				if (neighbours < 2)		cells_next[i*num_cells_y + j] = false;
-				if (neighbours > 3)		cells_next[i*num_cells_y + j] = false;
-				if (neighbours == 3) 	cells_next[i*num_cells_y + j] = true;
+				if 		(cells[i][j] == true and (neighbours == 2 or neighbours == 3))		cells_next[i][j] = true;
+				else if (cells[i][j] == false and neighbours == 3)							cells_next[i][j] = true;
+				else																		cells_next[i][j] = false;
 
-				if (prev_state != cells_next[i*num_cells_y + j]) flag_changes_made = true;
+				if (prev_state != cells_next[i][j]) flag_changes_made = true;
 			}
 		}
 	}
 	else
 	{
-		for (unsigned int i = 1; i < num_cells_x - 1; i++)
+		for (unsigned int i = 1; i < num_cells_x-1; i++)
 		{
-			for (unsigned int j = 1; j < num_cells_y - 1; j++)
+			for (unsigned int j = 1; j < num_cells_y-1; j++)
 			{
-				bool prev_state = cells[i*num_cells_y + j];
+				bool prev_state = cells[i][j];
 				neighbours = num_of_neighbours(i,j);
 
-				if (neighbours < 2)		cells_next[i*num_cells_y + j] = false;
-				else if (neighbours > 3)		cells_next[i*num_cells_y + j] = false;
-				else if (neighbours == 3) 	cells_next[i*num_cells_y + j] = true;
+				if 		(cells[i][j] == true and (neighbours == 2 or neighbours == 3))		cells_next[i][j] = true;
+				else if (cells[i][j] == false and neighbours == 3)							cells_next[i][j] = true;
+				else																		cells_next[i][j] = false;
 
-				if (prev_state != cells_next[i*num_cells_y + j]) flag_changes_made = true;
+				if (prev_state != cells_next[i][j]) flag_changes_made = true;
 			}
 		}
 	}
-		
+	sim_frame_copy();
 	return flag_changes_made;
 	
 }
@@ -220,8 +230,8 @@ void randomize_cells()
 	{
 		for (unsigned int j = 1; j < num_cells_y; j++)
 		{
-			if (rand()%2 == 0) cells_next[i*num_cells_y + j] = true;
-			else  cells_next[i*num_cells_y + j] = false;
+			if (rand()%2 == 0) cells[i][j] = true;
+			else  cells[i][j] = false;
 			
 		}
 	}
@@ -235,13 +245,13 @@ void debug_print(unsigned iteration_num)
      * @param iteration_num 	номер итерации для вывода.
      */
 	std::cout << "Итерация " << iteration_num << std::endl;
-	for (unsigned int i = 0; i <= num_cells_x; i++)
+	for (unsigned int i = 0; i < num_cells_x; i++)
 	{
-		for (unsigned int j = 0; j <= num_cells_y; j++)
+		for (unsigned int j = 0; j < num_cells_y; j++)
 		{
 			if (i == 0 or i == num_cells_x or j == 0 or j == num_cells_y) std::cout << border_char << ' ';
 				else{
-					if (cells[i*num_cells_y + j]) std::cout << alive_char << ' ';
+					if (cells[i][j]) std::cout << alive_char << ' ';
 					else std::cout << dead_char << ' ';
 				}
 
@@ -252,7 +262,42 @@ void debug_print(unsigned iteration_num)
 }
 
 
+void put_glider()
+{
+	cells[3][1] = true;
+	cells[3][2] = true;
+	cells[3][3] = true;
+	cells[2][3] = true; 
+	cells[1][2] = true;
+}
 
+void clear_cells()
+{
+	for (unsigned int i = 0; i < num_cells_x; i++)
+	{
+		for (unsigned int j = 0; j < num_cells_y; j++)
+		{
+			 cells[i][j] = false;
+		}
+	}
+}
+
+void allocate_cells()
+{
+
+	cells = new bool*[num_cells_x];
+	cells_next = new bool*[num_cells_x];
+
+	for(int i = 0; i < num_cells_x; i++)
+	{
+		cells[i] = new bool[num_cells_y];
+	}
+
+	for(int i = 0; i < num_cells_x; i++)
+	{
+		cells_next[i] = new bool[num_cells_y];
+	}
+}
 
 int main(int argc, char const *argv[])
 {
@@ -266,23 +311,26 @@ int main(int argc, char const *argv[])
 	char ans;
 	std::cout << "Вы уверены? (y/n)" ;
 	std::cin >> ans;
-	if (ans != 'y' and ans != 'Y') return 0;
-	cells.resize(num_cells_x * num_cells_y, false);
 	std::cout << std::endl;
-	 
+	if (ans != 'y' and ans != 'Y') return 0;
+
+	allocate_cells();
+		 
 	double avg = 0, maximum = -1, sum = 0;
 	for (unsigned test_number {0}; test_number < tests_count; test_number++)
 	{
+			clear_cells();
 			int iteration_num = 0;
-			randomize_cells();
-
+			if (!flag_glider_mode) randomize_cells();
+			else put_glider();
+			
 			if (print_mode == print_modes::FIRSTLAST or print_mode == print_modes::ALL) debug_print(iteration_num);
 			auto start = std::chrono::high_resolution_clock::now();
 				if (iter_count != 0)
 				{
 					for (; iteration_num < iter_count; iteration_num++)
 					{
-						if (print_mode == print_modes::ALL and iteration_num != iter_count - 1) debug_print(iteration_num);
+						if (print_mode == print_modes::ALL and iteration_num != iter_count - 1 and iteration_num != 0) debug_print(iteration_num);
 						if (not step_next()) 
 						{
 							std::cout << "<!>\tСтационарное состояние. Выход из симуляции" << std::endl;
@@ -307,7 +355,6 @@ int main(int argc, char const *argv[])
 				
 			auto end = std::chrono::high_resolution_clock::now();
 			if (print_mode == print_modes::FIRSTLAST or print_mode == print_modes::ALL) debug_print(iteration_num);
-
 			auto seconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
 			sum += seconds;
@@ -317,7 +364,6 @@ int main(int argc, char const *argv[])
 	}
 	
 	std::cout << "<!> Симуляция завершена. \tСреднее время работы: " << sum/tests_count/1000. << " секунд\tМаксимальное время работы: " << maximum/1000. << " секунд" << std::endl;
-;
 
 	return 0;
 }
