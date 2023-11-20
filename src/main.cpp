@@ -6,25 +6,22 @@
 #include <numeric>
 #include <algorithm>
 #include <chrono>
-#include <conio.h>
+#include <thread>
+#include <omp.h>
 
+std::vector<bool> cells {0};								// Текущий кадр симуляции
+std::vector<bool> cells_next {0};							// Следующий кадр симуляции
 
-/*===================================
-=====	ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ	=====	
-===================================*/
 enum class print_modes {NONE, FIRSTLAST, ALL};				// Режимы вывода на экран
 char border_char = 'X', alive_char = 'o', dead_char = '.'; 	// Символы
 unsigned num_cells_x = 10;									// Количество клеток по вертикали
 unsigned num_cells_y = 10;									// Количество клеток по горизонтали
 int randomizer_seed = 2107;									// Зерно генератора случайных чисел
-std::vector<bool> cells {0};								// Текущий кадр симуляции
 unsigned iter_count = 0;									// Количество итераций
 unsigned tests_count = 1;									// Количество повторов замеров (для получения более объективной цифры).
 bool flag_mode_iteration = false;							// Режим заданного количества итераций (если false, то будет симулировать пока не достигнет стационарного состояния)
+bool flag_parallel_mode = false;							// Режим распараллеливания с использованием OpenMP
 print_modes print_mode = print_modes::ALL;					// Текущий режим печати
-/*===================================
-=====	ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ	=====	
-===================================*/
 
 
 void process_arguments(int argc, char const *argv[]) {
@@ -57,6 +54,10 @@ void process_arguments(int argc, char const *argv[]) {
 		if (strcmp(argv[i], "-tests") == 0)
 		{
 			tests_count = std::stoi(argv[i+1]);
+		}
+		if (strcmp(argv[i], "-parallel") == 0)
+		{
+			flag_parallel_mode = true;
 		}
 		if (strcmp(argv[i], "-mode") == 0)
 		{
@@ -121,14 +122,11 @@ void config_printout() {
 	single_var_printout("Количество тестов", 		tests_count);
 	if (iter_count != 0) single_var_printout("Количество итераций", iter_count);
 	else std::cout << "<i>\tКоличество итераций:\t\t\tпока не стационарное состояние" << std::endl;
-	
+	std::cout << "Максимальное число потоков: " << omp_get_max_threads() << std::endl;
 }
 
 
-/*===================
-=====	ЛОГИКА	=====	
-===================*/
-
+// game of life logic
 unsigned int num_of_neighbours(unsigned int i, unsigned int j)
 {
 	/**
@@ -151,6 +149,17 @@ unsigned int num_of_neighbours(unsigned int i, unsigned int j)
 	return neighbours;
 }
 
+void sim_frame_copy()
+{
+	for (unsigned int i = 0; i < num_cells_x; i++)
+	{	
+		for (unsigned int j = 0; j < num_cells_y; j++)
+		{
+			cells[i*num_cells_y + j] = cells_next[i*num_cells_y + j];
+		}
+	}
+}
+
 bool step_next()
 {
 	/**
@@ -160,21 +169,45 @@ bool step_next()
      */
 	bool flag_changes_made = false;
 	int neighbours;
-	for (unsigned int i = 1; i < num_cells_x - 1; i++)
+	sim_frame_copy();
+	if (flag_parallel_mode)
 	{
-		for (unsigned int j = 1; j < num_cells_y - 1; j++)
+		#pragma omp parallel for
+		for (unsigned int i = 1; i < num_cells_x - 1; i++)
 		{
-			bool prev_state = cells[i*num_cells_y + j];
-			neighbours = num_of_neighbours(i,j);
+			for (unsigned int j = 1; j < num_cells_y - 1; j++)
+			{
+				bool prev_state = cells[i*num_cells_y + j];
+				neighbours = num_of_neighbours(i,j);
 
-			if (neighbours < 2)		cells[i*num_cells_y + j] = false;
-			if (neighbours > 3)		cells[i*num_cells_y + j] = false;
-			if (neighbours == 3) 	cells[i*num_cells_y + j] = true;
+				if (neighbours < 2)		cells_next[i*num_cells_y + j] = false;
+				if (neighbours > 3)		cells_next[i*num_cells_y + j] = false;
+				if (neighbours == 3) 	cells_next[i*num_cells_y + j] = true;
 
-			if (prev_state != cells[i*num_cells_y + j]) flag_changes_made = true;
+				if (prev_state != cells_next[i*num_cells_y + j]) flag_changes_made = true;
+			}
 		}
 	}
+	else
+	{
+		for (unsigned int i = 1; i < num_cells_x - 1; i++)
+		{
+			for (unsigned int j = 1; j < num_cells_y - 1; j++)
+			{
+				bool prev_state = cells[i*num_cells_y + j];
+				neighbours = num_of_neighbours(i,j);
+
+				if (neighbours < 2)		cells_next[i*num_cells_y + j] = false;
+				else if (neighbours > 3)		cells_next[i*num_cells_y + j] = false;
+				else if (neighbours == 3) 	cells_next[i*num_cells_y + j] = true;
+
+				if (prev_state != cells_next[i*num_cells_y + j]) flag_changes_made = true;
+			}
+		}
+	}
+		
 	return flag_changes_made;
+	
 }
 
 void randomize_cells()
@@ -187,8 +220,8 @@ void randomize_cells()
 	{
 		for (unsigned int j = 1; j < num_cells_y; j++)
 		{
-			if (rand()%2 == 0) cells[i*num_cells_y + j] = true;
-			else  cells[i*num_cells_y + j] = false;
+			if (rand()%2 == 0) cells_next[i*num_cells_y + j] = true;
+			else  cells_next[i*num_cells_y + j] = false;
 			
 		}
 	}
@@ -218,10 +251,6 @@ void debug_print(unsigned iteration_num)
 	}
 }
 
-/*===================
-=====	ЛОГИКА	=====	
-===================*/
-
 
 
 
@@ -236,7 +265,7 @@ int main(int argc, char const *argv[])
 
 	char ans;
 	std::cout << "Вы уверены? (y/n)" ;
-	ans = getch();
+	std::cin >> ans;
 	if (ans != 'y' and ans != 'Y') return 0;
 	cells.resize(num_cells_x * num_cells_y, false);
 	std::cout << std::endl;
